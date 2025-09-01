@@ -1,0 +1,17 @@
+HospitalNavigator/
+├── App.js
+├── package.json
+├── screens/
+│   ├── Auth.js         # Login and registration screen
+│   ├── Home.js         # Main dashboard
+│   ├── Map.js          # Navigation map
+│   └── Amenities.js     # Hotels & restaurants
+├── components/
+│   ├── Button.js
+│   ├── Input.js
+│   └── etc...
+├── api/
+│   └── api.js          # API service for fetch calls
+└── assets/
+    └── images/
+        └── hospital_floor_plan.png

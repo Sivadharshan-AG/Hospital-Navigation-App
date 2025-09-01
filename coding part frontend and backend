@@ -1,0 +1,253 @@
+Front-End Code
+First, create a new directory for your React Native project and initialize it.
+
+1. package.json
+
+Create a file named package.json with the following content. This lists the required libraries.
+
+JSON
+
+{
+  "name": "HospitalNavigator",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "~49.0.15",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-native": "0.72.6",
+    "react-native-maps": "1.7.1",
+    "react-navigation": "^4.4.4",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
+}
+2. App.js
+
+This is the main file for your app's navigation.
+
+JavaScript
+
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import AuthScreen from './screens/Auth';
+import HomeScreen from './screens/Home';
+import MapScreen from './screens/Map';
+import AmenitiesScreen from './screens/Amenities';
+
+const Stack = createStackNavigator();
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Auth">
+        <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Map" component={MapScreen} />
+        <Stack.Screen name="Amenities" component={AmenitiesScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+3. api/api.js
+
+This file manages all the API calls to your back-end. A user can simply change the BASE_URL here to connect to their own server.
+
+JavaScript
+
+import axios from 'axios';
+
+// ⚠️ CHANGE THIS URL TO POINT TO YOUR BACK-END SERVER
+// E.g., 'http://192.168.1.10:5000/api' or 'https://your-server-name.com/api'
+const BASE_URL = 'http://localhost:5000/api';
+
+export const api = axios.create({
+  baseURL: BASE_URL,
+});
+
+export const auth = {
+  login: (email, password) => api.post('/auth/login', { email, password }),
+  register: (name, email, password) => api.post('/auth/register', { name, email, password }),
+};
+
+export const hospital = {
+  getHospitals: () => api.get('/hospitals'),
+  getDepartments: (hospitalId) => api.get(`/hospitals/${hospitalId}/departments`),
+  getAmenities: (hospitalId) => api.get(`/hospitals/${hospitalId}/amenities`),
+};
+4. Screens
+
+Create the files inside a screens folder:
+
+Auth.js: Handles user login and registration.
+
+Home.js: Main dashboard with buttons to navigate.
+
+Map.js: Displays the map for navigation.
+
+Amenities.js: Shows nearby hotels and restaurants.
+
+I have provided a basic structure for these files in the previous response. You can copy the code into your project.
+
+🗄️ Back-End Code
+Create a new directory for your server and navigate into it.
+
+1. package.json
+
+Create a package.json file in the back-end directory to manage dependencies.
+
+JSON
+
+{
+  "name": "HospitalNavigatorBackend",
+  "version": "1.0.0",
+  "description": "API for Hospital Navigator App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "nodemon": "^3.0.1"
+  }
+}
+2. .env file
+
+This is the most important file for the user. They need to create a free MongoDB Atlas account to get their connection string and a secret key for JWT.
+
+MONGO_URI=mongodb+srv://<username>:<password>@<your-cluster-url>/hospitaldb?retryWrites=true&w=majority
+JWT_SECRET=a_very_secure_secret_key_for_jwt
+3. server.js
+
+This is the main entry point for your back-end server.
+
+JavaScript
+
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const authRoutes = require('./routes/auth');
+const hospitalRoutes = require('./routes/hospital');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/hospitals', hospitalRoutes);
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+4. routes/auth.js
+
+This handles the registration and login logic.
+
+JavaScript
+
+const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+const router = express.Router();
+
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ name, email, password: hashedPassword });
+    await user.save();
+    res.status(201).send('User registered successfully');
+  } catch (error) {
+    res.status(400).send('Error registering user');
+  }
+});
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).send('Invalid email or password');
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).send('Invalid email or password');
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+    res.send({ token });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+module.exports = router;
+5. routes/hospital.js
+
+This provides the hospital and amenity data.
+
+JavaScript
+
+const express = require('express');
+const router = express.Router();
+const Hospital = require('../models/Hospital'); // Create this model
+
+// Sample data to be replaced by actual DB data
+const dummyHospitals = [
+  { _id: '1', name: 'City General Hospital', type: 'Private' },
+  { _id: '2', name: 'Government Hospital', type: 'Government' }
+];
+const dummyAmenities = [
+  { hospitalId: '1', amenities: ['Cafe', 'Pharmacy', 'Hotel'] },
+  { hospitalId: '2', amenities: ['Canteen', 'Medical Store'] }
+];
+
+router.get('/', (req, res) => {
+  // In a real app, you'd fetch from MongoDB
+  res.json(dummyHospitals);
+});
+
+router.get('/:id/departments', (req, res) => {
+  // Simulate fetching departments
+  res.json(['Cardiology', 'Neurology', 'Oncology']);
+});
+
+router.get('/:id/amenities', (req, res) => {
+  const hospital = dummyAmenities.find(a => a.hospitalId === req.params.id);
+  res.json(hospital ? hospital.amenities : []);
+});
+
+module.exports = router;
+6. models/User.js and models/Hospital.js
+
+Create these files to define your database schemas.
+
+models/User.js: const mongoose = require('mongoose'); const userSchema = new mongoose.Schema({ name: String, email: { type: String, unique: true }, password: String }); module.exports = mongoose.model('User', userSchema);
+
+models/Hospital.js: (You can create this later if you want to store real data in the DB) const mongoose = require('mongoose'); const hospitalSchema = new mongoose.Schema({ name: String, type: String, departments: [String], amenities: [String] }); module.exports = mongoose.model('Hospital', hospitalSchema);
